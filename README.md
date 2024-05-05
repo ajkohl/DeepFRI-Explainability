@@ -275,11 +275,12 @@ Run pymol_viz.py in pymol to visualize the results
 
 
 The files that we (Valentina Simon, Ananya Krishna, Arjan Kohli) edited were:
-    predict.py
-    Predictor.py
-    viz_gradCAM.py
-    viz_EB.py
-    viz_PGExplainer.py
+
+* predict.py
+* Predictor.py
+* viz_gradCAM.py
+* viz_EB.py
+* viz_PGExplainer.py
     
 Predictor.py can be found in the deepfrier folder.
     
