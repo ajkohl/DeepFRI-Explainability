@@ -303,11 +303,23 @@ class Predictor(object):
                         print (prot, row[0], '{:.5f}'.format(row[2]), row[1])
                     writer.writerow([prot, row[0], '{:.5f}'.format(row[2]), row[1]])
         csvFile.close()
+        
+    def calc_sparsity(self, saliency_list):
+        non_zero_count = sum(1 for value in saliency_list if value != 0)
+        sparsity = 1 - (non_zero_count / len(saliency_list))
+        return sparsity
+    
+    def to_csv(self, my_list, filename):
+        with open(filename, 'w', newline='') as file:
+            writer = csv.writer(file)
+            for item in my_list:
+                writer.writerow([item])
 
     def compute_GradCAM(self, layer_name='GCNN_concatenate', use_guided_grads=False):
         print ("### Computing GradCAM for each function of every predicted protein...")
         gradcam = GradCAM(self.model, layer_name=layer_name)
-
+        
+        sparsity = []
         self.pdb2cam = {}
         for go_indx in self.goidx2chains:
             pred_chains = list(self.goidx2chains[go_indx])
@@ -322,8 +334,13 @@ class Predictor(object):
                 self.pdb2cam[chain]['GO_ids'].append(self.goterms[go_indx])
                 self.pdb2cam[chain]['GO_names'].append(self.gonames[go_indx])
                 self.pdb2cam[chain]['sequence'] = self.data[chain][1]
-                self.pdb2cam[chain]['saliency_maps'].append(gradcam.heatmap(self.data[chain][0], go_indx, use_guided_grads=use_guided_grads).tolist())
-
+                heatmap = gradcam.heatmap(self.data[chain][0], go_indx, use_guided_grads=use_guided_grads).tolist()
+                self.pdb2cam[chain]['saliency_maps'].append(heatmap)
+                sparsity.append(self.calc_sparsity(heatmap))
+        print (sparsity)
+        self.to_csv(sparsity, 'GradCAM_sparsity.csv')
+                
+                
     def save_GradCAM(self, output_fn):
         print ("### Saving CAMs to *.json file...")
         # pickle.dump(self.pdb2cam, open(output_fn, 'wb'))
@@ -334,6 +351,7 @@ class Predictor(object):
         print ("### Computing EB for each function of every predicted protein...")
         ebp = ExcitationBackpropogation(self.model, layer_name=layer_name)
 
+        sparsity = []
         self.pdb2cam = {}
         for go_indx in self.goidx2chains:
             pred_chains = list(self.goidx2chains[go_indx])
@@ -349,8 +367,10 @@ class Predictor(object):
                 self.pdb2cam[chain]['GO_names'].append(self.gonames[go_indx])
                 self.pdb2cam[chain]['sequence'] = self.data[chain][1]
                 EBP = ebp.compute_ebp(self.data[chain][0], go_indx, use_guided_grads=use_guided_grads)
-                print (EBP)
                 self.pdb2cam[chain]['saliency_maps'].append(EBP.tolist())
+                sparsity.append(self.calc_sparsity(EBP.tolist()))
+        print (sparsity)
+        self.to_csv(sparsity, 'EB_sparsity.csv')
                     
 
     def save_EB(self, output_fn):
@@ -363,6 +383,7 @@ class Predictor(object):
         print ("### Computing PGExplainer for each function of every predicted protein...")
         pgexplainer = PGExplainer(self.model, layer_name=layer_name)
 
+        sparsity = []
         self.pdb2cam = {}
         for go_indx in self.goidx2chains:
             pred_chains = list(self.goidx2chains[go_indx])
@@ -378,12 +399,15 @@ class Predictor(object):
                 self.pdb2cam[chain]['GO_names'].append(self.gonames[go_indx])
                 self.pdb2cam[chain]['sequence'] = self.data[chain][1]
                 heatmap = pgexplainer.explain(self.data[chain][0], go_indx, use_guided_grads = use_guided_grads)
-                print (heatmap.shape)
-                self.pdb2cam[chain]['heatmap'].append(heatmap.tolist())   
+                self.pdb2cam[chain]['heatmap'].append(heatmap.tolist())
+                sparsity.append(self.calc_sparsity(heatmap.tolist()))
+        print (sparsity)
+        self.to_csv(sparsity, 'PGExplainer_sparsity.csv')
 
     def save_PGExplainer(self, output_fn):
         print ("### Saving PGExplainer to *.json file...")
         # pickle.dump(self.pdb2cam, open(output_fn, 'wb'))
         with open(output_fn, 'w') as fw:
             json.dump(self.pdb2cam, fw, indent=1)
+
 
